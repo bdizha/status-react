@@ -102,20 +102,6 @@
       (core/delete realm message)
       (core/delete realm (core/get-by-field realm :user-status :message-id message-id)))))
 
-(defn update-message-tx
-  "Returns tx function for updating message"
-  [{:keys [message-id] :as message}]
-  (fn [realm]
-    (when (core/exists? realm :message :message-id message-id)
-      (core/create realm :message (prepare-message message) true))))
-
-(defn update-messages-tx
-  "Returns tx function for updating messages"
-  [messages]
-  (fn [realm]
-    (doseq [message messages]
-      ((update-message-tx message) realm))))
-
 (defn delete-messages-tx
   "Returns tx function for deleting messages with user statuses for given chat-id"
   [chat-id]
