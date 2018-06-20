@@ -169,6 +169,9 @@
                              {:confirm-messages-processed [{:web3   web3
                                                             :js-obj js-obj}]}
                              (add-message-fn message current-chat?)
+                             ;; Checking :outgoing here only works for now as we don't have a :seen
+                             ;; status for public chats, if we add processing of our own messages
+                             ;; for 1-to-1 care needs to be taken not to override the :seen status
                              (add-own-status chat-id message-id (cond (:outgoing message) :sent
                                                                       current-chat? :seen
                                                                       :else :received))
