@@ -82,7 +82,7 @@
   {:db (assoc db :inbox/current-id (selected-or-random-id cofx))})
 
 (defn set-initial-last-request [{:keys [db now] :as cofx}]
-  {:db (update-in db [:account/account :last-request] (fnil identity now))})
+  {:db (update-in db [:account/account :last-request] (fnil identity (quot now 1000)))})
 
 (defn add-custom-mailservers [mailservers {:keys [db]}]
   {:db (reduce (fn [db {:keys [id chain] :as mailserver}]

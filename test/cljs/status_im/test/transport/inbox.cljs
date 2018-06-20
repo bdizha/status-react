@@ -118,10 +118,10 @@
             :account/account
             {:networks {"mainnet" {:config {:NetworkId 1}}}}}]
     (testing "last-request is not set"
-      (testing "it sets it to now"
-        (is (= "now"
+      (testing "it sets it to now in seconds"
+        (is (= 10
                (get-in
-                (inbox/initialize-offline-inbox [] {:now "now" :db db})
+                (inbox/initialize-offline-inbox [] {:now 10000 :db db})
                 [:db :account/account :last-request])))))
     (testing "last-request is set"
       (testing "leaves it unchanged"

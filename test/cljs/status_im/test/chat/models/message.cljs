@@ -42,6 +42,34 @@
                                     :clock-value 0
                                     :chat-id "a"})))))
 
+(deftest add-own-received-message
+  (let [db {:current-public-key "me"
+            :view-id :chat
+            :current-chat-id "chat-id"
+            :chats {"chat-id" {:messages {}}}}]
+    (testing "a message coming from you!"
+      (let [actual (message/receive
+                    {:from "me"
+                     :message-id "id"
+                     :chat-id "chat-id"
+                     :content "b"
+                     :clock-value 1}
+                    {:db db})
+            message (get-in actual [:db :chats "chat-id" :messages "id"])
+            status  (get-in actual [:db :chats "chat-id" :message-statuses "id" "me" :status])]
+        (testing "it adds the message"
+          (is message))
+        (testing "it marks the message as outgoing"
+          (is (= true (:outgoing message))))
+        (testing "it confirm the message as processed"
+          (is (:confirm-messages-processed actual)))
+        (testing "it stores the message"
+          (is (:data-store/tx actual)))
+        (testing "it does not send a seen confirmation"
+          (is (not (:shh/post actual))))
+        (testing "it marks it as sent"
+          (is (= :sent status)))))))
+
 (deftest receive-send-seen
   (let [db           {:db {:chats {"chat-id" {}}
                            :account/account {:public-key "a"}

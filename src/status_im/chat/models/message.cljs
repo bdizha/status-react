@@ -125,37 +125,59 @@
   (when send-seen?
     (transport/send (protocol/map->MessagesSeen {:message-ids #{message-id}}) chat-id cofx)))
 
+(defn ensure-clock-value [{:keys [clock-value] :as message} {:keys [last-clock-value]}]
+  (if clock-value
+    message
+    (assoc message :clock-value (utils.clocks/send last-clock-value))))
+
+(defn add-outgoing-status [{:keys [from] :as message} {:keys [db]}]
+  (assoc message :outgoing (or (= from (:current-public-key db))
+                               (= from constants/system))))
+
+(defn add-command-request
+  [{:keys [content-type content] :as message} chat {:keys [db]}]
+  (let [request-command            (:request-command content)
+        current-account            (:account/account db)
+        command-request?           (and (= content-type
+                                           constants/content-type-command-request)
+                                        request-command)
+        {:keys [access-scope->commands-responses]
+         :contacts/keys [contacts]}          db]
+    (if command-request?
+      (assoc-in
+       message
+       [:content :request-command-ref]
+       (lookup-response-ref access-scope->commands-responses
+                            current-account
+                            chat
+                            contacts
+                            request-command))
+      message)))
+
 (defn- add-received-message
   [batch?
-   {:keys [from message-id chat-id content content-type clock-value to-clock-value js-obj] :as message}
+   {:keys [from message-id chat-id content content-type clock-value js-obj] :as raw-message}
    {:keys [db now] :as cofx}]
-  (let [{:keys [web3 current-chat-id view-id access-scope->commands-responses]
-         :contacts/keys [contacts]} db
-        current-account            (:account/account db)
+  (let [{:keys [web3 current-chat-id view-id]} db
         current-chat?              (and (= :chat view-id) (= current-chat-id chat-id))
-        {:keys [last-clock-value
-                public?] :as chat} (get-in db [:chats chat-id])
-        request-command            (:request-command content)
-        command-request?           (and (= content-type constants/content-type-command-request)
-                                        request-command)
-        add-message-fn             (if batch? add-batch-message add-single-message)]
+        {:keys [public?] :as chat} (get-in db [:chats chat-id])
+        add-message-fn             (if batch? add-batch-message add-single-message)
+        message                    (-> raw-message
+                                       (ensure-clock-value chat)
+                                       (add-outgoing-status cofx)
+                                       (add-command-request chat cofx))]
     (handlers-macro/merge-fx cofx
                              {:confirm-messages-processed [{:web3   web3
                                                             :js-obj js-obj}]}
-                             (add-message-fn (cond-> message
-                                               (not clock-value)
-                                               (assoc :clock-value (utils.clocks/send last-clock-value)) ; TODO (cammeelos): for backward compatibility, we use received time to be removed when not an issue anymore
-                                               command-request?
-                                               (assoc-in [:content :request-command-ref]
-                                                         (lookup-response-ref access-scope->commands-responses
-                                                                              current-account chat contacts request-command)))
-                                             current-chat?)
-                             (add-own-status chat-id message-id (if current-chat? :seen :received))
+                             (add-message-fn message current-chat?)
+                             (add-own-status chat-id message-id (cond (:outgoing message) :sent
+                                                                      current-chat? :seen
+                                                                      :else :received))
                              (requests-events/add-request chat-id message-id)
                              (send-message-seen chat-id message-id (and (not public?)
                                                                         current-chat?
                                                                         (not (chat-model/bot-only-chat? db chat-id))
-                                                                        (not (= constants/system from)))))))
+                                                                        (not (:outgoing message)))))))
 
 (def ^:private add-single-received-message (partial add-received-message false))
 (def ^:private add-batch-received-message (partial add-received-message true))
