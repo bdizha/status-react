@@ -131,8 +131,7 @@
     (assoc message :clock-value (utils.clocks/send last-clock-value))))
 
 (defn add-outgoing-status [{:keys [from] :as message} {:keys [db]}]
-  (assoc message :outgoing (or (= from (:current-public-key db))
-                               (= from constants/system))))
+  (assoc message :outgoing (= from (:current-public-key db))))
 
 (defn add-command-request
   [{:keys [content-type content] :as message} chat {:keys [db]}]
@@ -216,7 +215,6 @@
 
 (defn system-message [chat-id message-id timestamp content]
   {:message-id   message-id
-   :outgoing     false
    :chat-id      chat-id
    :from         constants/system
    :username     constants/system
@@ -249,7 +247,6 @@
                        {:message-id   random-id
                         :content      (str message)
                         :content-type constants/text-content-type
-                        :outgoing     false
                         :chat-id      chat-id
                         :from         chat-id
                         :to           "me"}
@@ -258,7 +255,6 @@
                        {:message-id   random-id
                         :content      (assoc (:content message) :bot chat-id)
                         :content-type constants/content-type-command-request
-                        :outgoing     false
                         :chat-id      chat-id
                         :from         chat-id
                         :to           "me"})]
@@ -302,7 +298,6 @@
                      :content          message-text
                      :from             identity
                      :content-type     constants/text-content-type
-                     :outgoing         true
                      :timestamp        now
                      :clock-value     (utils.clocks/send last-clock-value)
                      :show?            true}
@@ -413,7 +408,6 @@
                                              (if request
                                                constants/content-type-command-request
                                                constants/content-type-command))
-                       :outgoing         true
                        :clock-value      (utils.clocks/send last-clock-value)
                        :show?            true}
                       chat)))
